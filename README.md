@@ -13,50 +13,32 @@ is ever handed to a paid per-email verification step. In a measured run, the
 free pass cut 1,349 businesses down to 834 with a usable email before a cent
 of verification budget was spent.
 
-## Status
+## Pipeline stages
 
-This repository is incomplete, and it is worth being upfront about what is
-here and what is not.
+| Stage | Script | Status |
+|---|---|---|
+| 1 — Scrape | `stage1_scrape.py` | runs |
+| 2 — Homepage enrichment | `stage2.py` | runs |
+| 2b — Owner-name recovery | `stage2b_names.py` | runs |
+| 3 — Classify + qualify | — | LLM classification — run manually against `stage3_input.json`; no script in this repo |
+| 4 — Verify + load | — | planned (MillionVerifier verification, then Smartlead load) |
 
-**Runs today**
+`config.py` holds the stage 1 settings the measured run used. `APIFY_TOKEN` is
+read from the environment, never from the file.
 
-- `stage1_scrape.py` — Google Maps scrape via the Apify API, plus a
-  `--synthetic` mode that generates fake records so the rest of the pipeline
-  can be exercised without spending credit.
-- `stage2.py` — the free homepage/contact-page enrichment pass. This is the
-  stage the measured numbers below come from.
-- `stage2b_names.py` — targeted About-page crawl to recover owner first names
-  for rows that don't have one.
-
-**Missing**
-
-- **`config.py` is not in the tree.** `stage1_scrape.py` imports it and reads
-  seven settings from it. I have reconstructed it as `config.py` with
-  placeholder values — every field name and type is derivable unambiguously
-  from how stage 1 uses it, but the actual values I ran with are not
-  recoverable from the code, so they are marked as placeholders in that file.
-- **`stage3_extract.py` and `stage4_verify_load.py` do not exist here.**
-  `RUN.md` (my own run notes, not committed) calls for them: stage 3 turns the
-  scraped page text into structured fields via an LLM API, stage 4 runs paid
-  per-email verification and writes the final CSV. Neither is included.
-- **`merge_exports.py`**, referenced in my run notes for folding in a metro
-  already downloaded as a file, is also not here.
-
-**Known interface gaps between the files that are here**
+**Known interface gaps between the committed files.** These are real; I have
+not papered over them.
 
 - `stage1_scrape.py` writes `stage1_raw.json`; `stage2.py` reads
   `stage1_survivors.json`. Something renamed or merged that file between the
   two stages and it is not in the repo. [CONFIRM]
 - `stage1_scrape.py`'s `normalize_apify()` emits a `domain` key but no
   `website` key, and `stage2.py`'s `work()` reads `rec['website']`. As
-  committed, stage 2 would raise `KeyError` on stage 1's output. This is real
-  and I have not papered over it.
+  committed, stage 2 would raise `KeyError` on stage 1's output.
 - `stage1_scrape.py` prints `next: python3 stage2_fetch.py`; the file is named
   `stage2.py`.
 - My run notes say to lower `FETCH_WORKERS` "in config" if sites hang, but
   `stage2.py` hardcodes `WORKERS = 12` and does not import `config` at all.
-
-Treat this as a working pipeline captured mid-refactor, not a packaged tool.
 
 ## Architecture
 
@@ -87,8 +69,9 @@ Four stages, deliberately ordered cheapest-filter-first.
             |
             v  stage2_enriched.json + stage2_report.txt
             |
-   [ STAGE 3 ]  stage3_extract.py         COST: LLM tokens [CONFIRM]
-   NOT IN THIS REPO. Turns the captured
+   [ STAGE 3 ]  no script in this repo    COST: LLM tokens [CONFIRM]
+   Run manually against stage3_input.json.
+   Turns the captured
    page text into structured fields
    (ticket band, service lines, years
    operating, residential/commercial,
@@ -104,9 +87,9 @@ Four stages, deliberately ordered cheapest-filter-first.
             |
             v  about_snippets.json
             |
-   [ STAGE 4 ]  stage4_verify_load.py     COST: per email verified
-   NOT IN THIS REPO. Paid mailbox
-   verification, then final CSV.
+   [ STAGE 4 ]  planned                   COST: per email verified
+   MillionVerifier verification, then
+   load to Smartlead.
 ```
 
 The cost shape is the whole point: the only two paid steps sit at the very
