@@ -1,0 +1,27 @@
+# This pipeline processes real business contact data. Nothing it produces --
+# no scraped record, email address, phone number or business name -- may ever
+# be committed to this repository, not even by accident. The rules below
+# exclude every output extension the scripts write (*.json, *.csv, *.txt),
+# plus secrets and bytecode, so that a stray `git add .` cannot leak a lead
+# file. If you add a stage that writes a new extension, add it here first.
+
+# Pipeline outputs -- scraped and enriched contact data
+*.json
+*.csv
+*.txt
+exports/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
